@@ -1,0 +1,67 @@
+import cv2
+import numpy as np
+import tensorflow as tf
+import tensorflow_hub as hub
+
+# Load MobileNetV2 model from TensorFlow Hub for object detection
+model = hub.load("https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/classification/5")
+
+# Load class labels
+labels_path = "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt"
+labels = tf.keras.utils.get_file("ImageNetLabels.txt", labels_path)
+with open(labels, "r") as f:
+    class_labels = [line.strip() for line in f.readlines()]
+
+# Define waste categories
+biodegradable_keywords = ["organic", "food", "fruit", "vegetable", "plant", "compost", "paper", "leaves"]
+non_biodegradable_keywords = ["plastic", "metal", "glass", "rubber", "electronics", "synthetic", "bottle"]
+
+# Open the laptop webcam
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("Failed to grab frame from webcam")
+        break
+
+    # Resize and preprocess frame
+    resized_frame = cv2.resize(frame, (224, 224))
+    normalized_frame = resized_frame / 255.0
+    input_frame = np.expand_dims(normalized_frame, axis=0).astype(np.float32)
+
+    # Make prediction
+    prediction = model(input_frame)
+    class_index = np.argmax(prediction)
+    class_label = class_labels[class_index]  # Detected object name
+
+    # Determine waste type
+    if any(word in class_label.lower() for word in biodegradable_keywords):
+        category = "Biodegradable"
+        color = (0, 255, 0)  # Green
+    elif any(word in class_label.lower() for word in non_biodegradable_keywords):
+        category = "Non-Biodegradable"
+        color = (0, 0, 255)  # Red
+    else:
+        category = "Unknown"
+        color = (255, 255, 255)
+
+    # Draw a rectangle and label with object name and classification
+    height, width, _ = frame.shape
+    cv2.rectangle(frame, (50, 50), (width - 50, height - 50), color, 3)
+    cv2.putText(frame, f"Object: {class_label}", (60, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, f"Type: {category}", (60, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+    # Display the output
+    cv2.imshow("Waste Classification - Webcam", frame)
+
+    # Press 'q' to exit
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+cap.release()
+cv2.destroyAllWindows()
+
+
+

@@ -1,0 +1,64 @@
+#include <Servo.h>
+
+#define TRIG_PIN 7
+#define ECHO_PIN 6
+#define SERVO_PIN 9
+#define BELT_SERVO_PIN 10
+#define SECOND_SERVO_PIN 11
+
+Servo dustbinServo;
+Servo beltServo;
+Servo secondServo;
+
+void setup() {
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    dustbinServo.attach(SERVO_PIN);
+    beltServo.attach(BELT_SERVO_PIN);
+    secondServo.attach(SECOND_SERVO_PIN);
+    dustbinServo.write(0); // Start with the dustbin closed
+    beltServo.write(0); // Start with the belt stopped
+    secondServo.write(0); // Start with the second servo stopped
+    Serial.begin(9600);
+}
+
+long getDistance() {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    
+    long duration = pulseIn(ECHO_PIN, HIGH);
+    long distance = duration * 0.034 / 2;
+    return distance;
+}
+
+void loop() {
+    long distance = getDistance();
+    Serial.println(distance);
+    
+    if (distance < 20) { // If a person comes close
+        dustbinServo.write(90); // Open dustbin
+        delay(3000); // Keep it open for 3 seconds
+        dustbinServo.write(0); // Close dustbin
+        
+        delay(2000); // 2-second gap before conveyor belt starts
+        
+        for (int angle = 0; angle < 360; angle += 20) {
+            beltServo.write(angle);
+            delay(1000); // Move 20 degrees per second
+        }
+        
+        delay(1000); // 1-second gap before second servo starts
+        
+        for (int angle = 0; angle < 360; angle += 20) {
+            secondServo.write(angle);
+            delay(1000); // Move 20 degrees per second
+        }
+        
+        delay(1000); // 1-second delay after second servo finishes
+    }
+    
+    delay(500); // Check every 0.5 seconds
+}
